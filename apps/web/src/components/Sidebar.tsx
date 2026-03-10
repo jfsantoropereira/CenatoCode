@@ -39,8 +39,8 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import { useAppSettings } from "../appSettings";
 import { isElectron } from "../env";
-import { APP_STAGE_LABEL } from "../branding";
-import { isMacPlatform, newCommandId, newProjectId, newThreadId } from "../lib/utils";
+import { APP_BASE_NAME, APP_STAGE_LABEL } from "../branding";
+import { cn, isMacPlatform, newCommandId, newProjectId, newThreadId } from "../lib/utils";
 import { useStore } from "../store";
 import { isChatNewLocalShortcut, isChatNewShortcut, shortcutLabelForCommand } from "../keybindings";
 import { derivePendingApprovals, derivePendingUserInputs } from "../session-logic";
@@ -163,19 +163,16 @@ function prStatusIndicator(pr: ThreadPr): PrStatusIndicator | null {
   return null;
 }
 
-function T3Wordmark() {
+function CenatoWordmark() {
   return (
-    <svg
-      aria-label="T3"
-      className="h-2.5 w-auto shrink-0 text-foreground"
-      viewBox="15.5309 37 94.3941 56.96"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M33.4509 93V47.56H15.5309V37H64.3309V47.56H46.4109V93H33.4509ZM86.7253 93.96C82.832 93.96 78.9653 93.4533 75.1253 92.44C71.2853 91.3733 68.032 89.88 65.3653 87.96L70.4053 78.04C72.5386 79.5867 75.0186 80.8133 77.8453 81.72C80.672 82.6267 83.5253 83.08 86.4053 83.08C89.6586 83.08 92.2186 82.44 94.0853 81.16C95.952 79.88 96.8853 78.12 96.8853 75.88C96.8853 73.7467 96.0586 72.0667 94.4053 70.84C92.752 69.6133 90.0853 69 86.4053 69H80.4853V60.44L96.0853 42.76L97.5253 47.4H68.1653V37H107.365V45.4L91.8453 63.08L85.2853 59.32H89.0453C95.9253 59.32 101.125 60.8667 104.645 63.96C108.165 67.0533 109.925 71.0267 109.925 75.88C109.925 79.0267 109.099 81.9867 107.445 84.76C105.792 87.48 103.259 89.6933 99.8453 91.4C96.432 93.1067 92.0586 93.96 86.7253 93.96Z"
-        fill="currentColor"
-      />
-    </svg>
+    <div className="flex flex-col leading-none">
+      <span className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
+        Operator Console
+      </span>
+      <span className="mt-1 text-sm font-semibold uppercase tracking-[0.24em] text-foreground">
+        {APP_BASE_NAME}
+      </span>
+    </div>
   );
 }
 
@@ -326,6 +323,10 @@ export default function Sidebar() {
   }, [threads]);
   const projectCwdById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.cwd] as const)),
+    [projects],
+  );
+  const projectNameById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.name] as const)),
     [projects],
   );
   const threadGitTargets = useMemo(
@@ -1158,6 +1159,45 @@ export default function Sidebar() {
       shortcutLabelForCommand(keybindings, "chat.new"),
     [keybindings],
   );
+  const activeThread = routeThreadId
+    ? threads.find((thread) => thread.id === routeThreadId)
+    : undefined;
+  const activeDraftThread = routeThreadId ? getDraftThread(routeThreadId) : null;
+  const runningThreads = useMemo(
+    () =>
+      threads
+        .filter((thread) => {
+          const sessionStatus = thread.session?.status;
+          const hasRunningSession =
+            thread.session?.activeTurnId !== undefined ||
+            sessionStatus === "connecting" ||
+            sessionStatus === "running";
+          const hasPendingApproval = pendingApprovalByThreadId.get(thread.id) === true;
+          const hasPendingUserInput = pendingUserInputByThreadId.get(thread.id) === true;
+          const hasRunningTerminal =
+            selectThreadTerminalState(terminalStateByThreadId, thread.id).runningTerminalIds
+              .length > 0;
+          return (
+            hasRunningSession || hasPendingApproval || hasPendingUserInput || hasRunningTerminal
+          );
+        })
+        .toSorted((left, right) =>
+          (right.session?.updatedAt ?? right.createdAt).localeCompare(
+            left.session?.updatedAt ?? left.createdAt,
+          ),
+        )
+        .slice(0, 6),
+    [pendingApprovalByThreadId, pendingUserInputByThreadId, terminalStateByThreadId, threads],
+  );
+  const handleCreateTask = useCallback(() => {
+    const projectId = activeThread?.projectId ?? activeDraftThread?.projectId ?? projects[0]?.id;
+    if (!projectId) return;
+    void handleNewThread(projectId, {
+      branch: activeThread?.branch ?? activeDraftThread?.branch ?? null,
+      worktreePath: activeThread?.worktreePath ?? activeDraftThread?.worktreePath ?? null,
+      envMode: activeDraftThread?.envMode ?? (activeThread?.worktreePath ? "worktree" : "local"),
+    });
+  }, [activeDraftThread, activeThread, handleNewThread, projects]);
 
   const handleDesktopUpdateButtonClick = useCallback(() => {
     const bridge = window.desktopBridge;
@@ -1238,12 +1278,12 @@ export default function Sidebar() {
   const wordmark = (
     <div className="flex items-center gap-2">
       <SidebarTrigger className="shrink-0 md:hidden" />
-      <div className="flex min-w-0 flex-1 items-center gap-1 mt-1.5 ml-1">
-        <T3Wordmark />
-        <span className="truncate text-sm font-medium tracking-tight text-muted-foreground">
-          Code
-        </span>
-        <span className="rounded-full bg-muted/50 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/60">
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <div className="mt-0.5 flex size-8 items-center justify-center border-2 border-border text-[10px] font-bold uppercase tracking-[0.24em] text-primary">
+          CC
+        </div>
+        <CenatoWordmark />
+        <span className="mt-1 border border-border px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
           {APP_STAGE_LABEL}
         </span>
       </div>
@@ -1254,7 +1294,7 @@ export default function Sidebar() {
     <>
       {isElectron ? (
         <>
-          <SidebarHeader className="drag-region h-[52px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">
+          <SidebarHeader className="drag-region h-[60px] flex-row items-center gap-2 border-b-2 border-border px-4 py-0 pl-[90px]">
             {wordmark}
             {showDesktopUpdateButton && (
               <Tooltip>
@@ -1265,7 +1305,7 @@ export default function Sidebar() {
                       aria-label={desktopUpdateTooltip}
                       aria-disabled={desktopUpdateButtonDisabled || undefined}
                       disabled={desktopUpdateButtonDisabled}
-                      className={`inline-flex size-7 ml-auto mt-1.5 items-center justify-center rounded-md text-muted-foreground transition-colors ${desktopUpdateButtonInteractivityClasses} ${desktopUpdateButtonClasses}`}
+                      className={`ml-auto inline-flex size-7 items-center justify-center border border-border text-muted-foreground transition-colors ${desktopUpdateButtonInteractivityClasses} ${desktopUpdateButtonClasses}`}
                       onClick={handleDesktopUpdateButtonClick}
                     >
                       <RocketIcon className="size-3.5" />
@@ -1278,15 +1318,28 @@ export default function Sidebar() {
           </SidebarHeader>
         </>
       ) : (
-        <SidebarHeader className="gap-3 px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-3">
+        <SidebarHeader className="gap-3 border-b-2 border-border px-3 py-3 sm:gap-2.5 sm:px-4">
           {wordmark}
         </SidebarHeader>
       )}
 
       <SidebarContent className="gap-0">
+        <SidebarGroup className="px-2 pb-0 pt-2">
+          <Button
+            size="sm"
+            className="w-full justify-between"
+            onClick={handleCreateTask}
+            disabled={projects.length === 0}
+          >
+            <span>New Task</span>
+            {newThreadShortcutLabel ? (
+              <span className="text-[10px] opacity-70">{newThreadShortcutLabel}</span>
+            ) : null}
+          </Button>
+        </SidebarGroup>
         {showArm64IntelBuildWarning && arm64IntelBuildWarningDescription ? (
           <SidebarGroup className="px-2 pt-2 pb-0">
-            <Alert variant="warning" className="rounded-2xl border-warning/40 bg-warning/8">
+            <Alert variant="warning" className="bg-warning/8">
               <TriangleAlertIcon />
               <AlertTitle>Intel build on Apple Silicon</AlertTitle>
               <AlertDescription>{arm64IntelBuildWarningDescription}</AlertDescription>
@@ -1308,16 +1361,61 @@ export default function Sidebar() {
           </SidebarGroup>
         ) : null}
         <SidebarGroup className="px-2 py-2">
+          <div className="mb-2 px-2">
+            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground/70">
+              Currently Running
+            </span>
+          </div>
+          {runningThreads.length > 0 ? (
+            <SidebarMenu className="mb-3">
+              {runningThreads.map((thread) => {
+                const threadStatus = resolveThreadStatusPill({
+                  thread,
+                  hasPendingApprovals: pendingApprovalByThreadId.get(thread.id) === true,
+                  hasPendingUserInput: pendingUserInputByThreadId.get(thread.id) === true,
+                });
+                return (
+                  <SidebarMenuItem key={`running:${thread.id}`}>
+                    <SidebarMenuButton
+                      size="sm"
+                      className="gap-2 border border-border px-2 py-1.5 text-left hover:bg-accent"
+                      onClick={() =>
+                        void navigate({ to: "/$threadId", params: { threadId: thread.id } })
+                      }
+                    >
+                      <span
+                        className={cn(
+                          "h-2 w-2 shrink-0 rounded-full",
+                          threadStatus?.dotClass ?? "bg-primary",
+                          threadStatus?.pulse ? "animate-pulse" : undefined,
+                        )}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[11px] font-medium uppercase tracking-[0.12em] text-foreground">
+                          {thread.title}
+                        </div>
+                        <div className="truncate text-[10px] text-muted-foreground/80">
+                          {projectNameById.get(thread.projectId) ?? "Workspace"}
+                        </div>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          ) : (
+            <div className="mb-3 px-2 text-[11px] text-muted-foreground/60">No active runs.</div>
+          )}
           <div className="mb-1 flex items-center justify-between px-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-              Projects
+            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground/70">
+              Folders
             </span>
             <Tooltip>
               <TooltipTrigger
                 render={
                   <button
                     type="button"
-                    aria-label="Add project"
+                    aria-label="Add folder"
                     aria-pressed={shouldShowProjectPathEntry}
                     className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
                     onClick={handleStartAddProject}
@@ -1330,7 +1428,7 @@ export default function Sidebar() {
                   }`}
                 />
               </TooltipTrigger>
-              <TooltipPopup side="right">Add project</TooltipPopup>
+              <TooltipPopup side="right">Add folder</TooltipPopup>
             </Tooltip>
           </div>
 
@@ -1355,7 +1453,7 @@ export default function Sidebar() {
                       ? "border-red-500/70 focus:border-red-500"
                       : "border-border focus:border-ring"
                   }`}
-                  placeholder="/path/to/project"
+                  placeholder="/path/to/workspace"
                   value={newCwd}
                   onChange={(event) => {
                     setNewCwd(event.target.value);
@@ -1456,7 +1554,7 @@ export default function Sidebar() {
                                 }`}
                               />
                               <ProjectFavicon cwd={project.cwd} />
-                              <span className="flex-1 truncate text-xs font-medium text-foreground/90">
+                              <span className="flex-1 truncate text-xs font-medium uppercase tracking-[0.12em] text-foreground/90">
                                 {project.name}
                               </span>
                             </SidebarMenuButton>
@@ -1467,7 +1565,7 @@ export default function Sidebar() {
                                     render={
                                       <button
                                         type="button"
-                                        aria-label={`Create new thread in ${project.name}`}
+                                        aria-label={`Create new task in ${project.name}`}
                                       />
                                     }
                                     showOnHover
@@ -1484,8 +1582,8 @@ export default function Sidebar() {
                               />
                               <TooltipPopup side="top">
                                 {newThreadShortcutLabel
-                                  ? `New thread (${newThreadShortcutLabel})`
-                                  : "New thread"}
+                                  ? `New task (${newThreadShortcutLabel})`
+                                  : "New task"}
                               </TooltipPopup>
                             </Tooltip>
                           </div>
@@ -1720,9 +1818,19 @@ export default function Sidebar() {
 
           {projects.length === 0 && !shouldShowProjectPathEntry && (
             <div className="px-2 pt-4 text-center text-xs text-muted-foreground/60">
-              No projects yet
+              No folders yet
             </div>
           )}
+          <div className="mt-4 border-t-2 border-border pt-3">
+            <div className="mb-2 px-2">
+              <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground/70">
+                Scheduled Tasks
+              </span>
+            </div>
+            <div className="px-2 text-[11px] leading-relaxed text-muted-foreground/60">
+              Deferred in phase 1. Core T3 runtime behavior remains unchanged during the rebrand.
+            </div>
+          </div>
         </SidebarGroup>
       </SidebarContent>
 
@@ -1746,7 +1854,7 @@ export default function Sidebar() {
                 onClick={() => void navigate({ to: "/settings" })}
               >
                 <SettingsIcon className="size-3.5" />
-                <span className="text-xs">Settings</span>
+                <span className="text-xs">Console Settings</span>
               </SidebarMenuButton>
             )}
           </SidebarMenuItem>

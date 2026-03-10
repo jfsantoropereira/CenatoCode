@@ -56,54 +56,54 @@ function terminalThemeFromApp(): ITheme {
     return {
       background,
       foreground,
-      cursor: "rgb(180, 203, 255)",
-      selectionBackground: "rgba(180, 203, 255, 0.25)",
-      scrollbarSliderBackground: "rgba(255, 255, 255, 0.1)",
-      scrollbarSliderHoverBackground: "rgba(255, 255, 255, 0.18)",
-      scrollbarSliderActiveBackground: "rgba(255, 255, 255, 0.22)",
-      black: "rgb(24, 30, 38)",
-      red: "rgb(255, 122, 142)",
-      green: "rgb(134, 231, 149)",
-      yellow: "rgb(244, 205, 114)",
-      blue: "rgb(137, 190, 255)",
-      magenta: "rgb(208, 176, 255)",
-      cyan: "rgb(124, 232, 237)",
-      white: "rgb(210, 218, 230)",
-      brightBlack: "rgb(110, 120, 136)",
-      brightRed: "rgb(255, 168, 180)",
-      brightGreen: "rgb(176, 245, 186)",
-      brightYellow: "rgb(255, 224, 149)",
-      brightBlue: "rgb(174, 210, 255)",
-      brightMagenta: "rgb(229, 203, 255)",
-      brightCyan: "rgb(167, 244, 247)",
-      brightWhite: "rgb(244, 247, 252)",
+      cursor: "rgb(69, 142, 247)",
+      selectionBackground: "rgba(69, 142, 247, 0.22)",
+      scrollbarSliderBackground: "rgba(255, 255, 255, 0.14)",
+      scrollbarSliderHoverBackground: "rgba(255, 255, 255, 0.24)",
+      scrollbarSliderActiveBackground: "rgba(255, 255, 255, 0.3)",
+      black: "rgb(0, 0, 0)",
+      red: "rgb(255, 68, 68)",
+      green: "rgb(0, 255, 136)",
+      yellow: "rgb(255, 170, 0)",
+      blue: "rgb(69, 142, 247)",
+      magenta: "rgb(255, 255, 255)",
+      cyan: "rgb(69, 142, 247)",
+      white: "rgb(204, 204, 204)",
+      brightBlack: "rgb(85, 85, 85)",
+      brightRed: "rgb(255, 110, 110)",
+      brightGreen: "rgb(102, 255, 183)",
+      brightYellow: "rgb(255, 197, 82)",
+      brightBlue: "rgb(112, 168, 255)",
+      brightMagenta: "rgb(230, 230, 230)",
+      brightCyan: "rgb(112, 168, 255)",
+      brightWhite: "rgb(255, 255, 255)",
     };
   }
 
   return {
     background,
     foreground,
-    cursor: "rgb(38, 56, 78)",
-    selectionBackground: "rgba(37, 63, 99, 0.2)",
+    cursor: "rgb(69, 142, 247)",
+    selectionBackground: "rgba(69, 142, 247, 0.18)",
     scrollbarSliderBackground: "rgba(0, 0, 0, 0.15)",
     scrollbarSliderHoverBackground: "rgba(0, 0, 0, 0.25)",
     scrollbarSliderActiveBackground: "rgba(0, 0, 0, 0.3)",
-    black: "rgb(44, 53, 66)",
-    red: "rgb(191, 70, 87)",
-    green: "rgb(60, 126, 86)",
-    yellow: "rgb(146, 112, 35)",
-    blue: "rgb(72, 102, 163)",
-    magenta: "rgb(132, 86, 149)",
-    cyan: "rgb(53, 127, 141)",
-    white: "rgb(210, 215, 223)",
-    brightBlack: "rgb(112, 123, 140)",
-    brightRed: "rgb(212, 95, 112)",
-    brightGreen: "rgb(85, 148, 111)",
-    brightYellow: "rgb(173, 133, 45)",
-    brightBlue: "rgb(91, 124, 194)",
-    brightMagenta: "rgb(153, 107, 172)",
-    brightCyan: "rgb(70, 149, 164)",
-    brightWhite: "rgb(236, 240, 246)",
+    black: "rgb(0, 0, 0)",
+    red: "rgb(204, 34, 34)",
+    green: "rgb(0, 153, 77)",
+    yellow: "rgb(204, 119, 0)",
+    blue: "rgb(69, 142, 247)",
+    magenta: "rgb(51, 51, 51)",
+    cyan: "rgb(69, 142, 247)",
+    white: "rgb(204, 204, 204)",
+    brightBlack: "rgb(153, 153, 153)",
+    brightRed: "rgb(221, 68, 68)",
+    brightGreen: "rgb(0, 180, 92)",
+    brightYellow: "rgb(230, 145, 31)",
+    brightBlue: "rgb(102, 163, 255)",
+    brightMagenta: "rgb(102, 102, 102)",
+    brightCyan: "rgb(102, 163, 255)",
+    brightWhite: "rgb(255, 255, 255)",
   };
 }
 
@@ -728,7 +728,7 @@ export default function ThreadTerminalDrawer({
 
   return (
     <aside
-      className="thread-terminal-drawer relative flex min-w-0 shrink-0 flex-col overflow-hidden border-t border-border/80 bg-background"
+      className="thread-terminal-drawer relative flex min-w-0 shrink-0 flex-col overflow-hidden border-t-2 border-border bg-background"
       style={{ height: `${drawerHeight}px` }}
     >
       <div
@@ -741,7 +741,7 @@ export default function ThreadTerminalDrawer({
 
       {!hasTerminalSidebar && (
         <div className="pointer-events-none absolute right-2 top-2 z-20">
-          <div className="pointer-events-auto inline-flex items-center overflow-hidden rounded-md border border-border/80 bg-background/70">
+          <div className="pointer-events-auto inline-flex items-center overflow-hidden border-2 border-border bg-background/70">
             <TerminalActionButton
               className={`p-1 text-foreground/90 transition-colors ${
                 hasReachedTerminalLimit

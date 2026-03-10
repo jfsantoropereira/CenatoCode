@@ -405,6 +405,19 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
   const headerRow = (
     <>
       <div className="relative min-w-0 flex-1 [-webkit-app-region:no-drag]">
+        <div className="mb-2 flex items-center justify-between gap-2 px-8">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+              Inspection
+            </div>
+            <div className="text-xs font-medium uppercase tracking-[0.14em] text-foreground">
+              Diff View
+            </div>
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+            {selectedTurnId === null ? "Conversation" : "Checkpoint"}
+          </div>
+        </div>
         {canScrollTurnStripLeft && (
           <div className="pointer-events-none absolute inset-y-0 left-8 z-10 w-7 bg-linear-to-r from-card to-transparent" />
         )}
@@ -516,8 +529,8 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
     </>
   );
   const headerRowClassName = cn(
-    "flex items-center justify-between gap-2 px-4",
-    shouldUseDragRegion ? "drag-region h-[52px] border-b border-border" : "h-12",
+    "flex items-center justify-between gap-2 px-4 py-3",
+    shouldUseDragRegion ? "drag-region min-h-[60px] border-b-2 border-border" : "min-h-[60px]",
   );
 
   return (
@@ -525,7 +538,7 @@ export default function DiffPanel({ mode = "inline" }: DiffPanelProps) {
       className={cn(
         "flex h-full min-w-0 flex-col bg-background",
         mode === "inline"
-          ? "w-[42vw] min-w-[360px] max-w-[560px] shrink-0 border-l border-border"
+          ? "w-[23.75rem] min-w-[320px] max-w-[560px] shrink-0 border-l-2 border-border"
           : "w-full",
       )}
     >

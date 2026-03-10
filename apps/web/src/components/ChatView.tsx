@@ -143,6 +143,8 @@ import {
   ListTodoIcon,
   LockIcon,
   LockOpenIcon,
+  MoonIcon,
+  SunIcon,
   Undo2Icon,
   XIcon,
   CopyIcon,
@@ -587,7 +589,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
     strict: false,
     select: (params) => parseDiffRouteSearch(params),
   });
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const queryClient = useQueryClient();
   const createWorktreeMutation = useMutation(gitCreateWorktreeMutationOptions({ queryClient }));
   const composerDraft = useComposerThreadDraft(threadId);
@@ -691,6 +693,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
   const composerSelectLockRef = useRef(false);
   const composerMenuOpenRef = useRef(false);
   const composerMenuItemsRef = useRef<ComposerCommandItem[]>([]);
+  const toggleTheme = useCallback(() => {
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
+  }, [resolvedTheme, setTheme]);
   const activeComposerMenuItemRef = useRef<ComposerCommandItem | null>(null);
   const attachmentPreviewHandoffByMessageIdRef = useRef<Record<string, string[]>>({});
   const attachmentPreviewHandoffTimeoutByMessageIdRef = useRef<Record<string, number>>({});
@@ -3550,14 +3555,15 @@ export default function ChatView({ threadId }: ChatViewProps) {
       {/* Top bar */}
       <header
         className={cn(
-          "border-b border-border px-3 sm:px-5",
-          isElectron ? "drag-region flex h-[52px] items-center" : "py-2 sm:py-3",
+          "border-b-2 border-border px-3 sm:px-5",
+          isElectron ? "drag-region flex h-[60px] items-center" : "py-3",
         )}
       >
         <ChatHeader
           activeThreadId={activeThread.id}
           activeThreadTitle={activeThread.title}
           activeProjectName={activeProject?.name}
+          resolvedTheme={resolvedTheme}
           isGitRepo={isGitRepo}
           openInCwd={activeThread.worktreePath ?? activeProject?.cwd ?? null}
           activeProjectScripts={activeProject?.scripts}
@@ -3576,6 +3582,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           onUpdateProjectScript={updateProjectScript}
           onDeleteProjectScript={deleteProjectScript}
           onToggleDiff={onToggleDiff}
+          onToggleTheme={toggleTheme}
         />
       </header>
 
@@ -3592,7 +3599,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
           {/* Messages */}
           <div
             ref={setMessagesScrollContainerRef}
-            className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-5 sm:py-4"
+            className="cenatocode-stream min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-3 sm:px-5 sm:py-4"
             onScroll={onMessagesScroll}
             onClickCapture={onMessagesClickCapture}
             onWheel={onMessagesWheel}
@@ -3634,11 +3641,11 @@ export default function ChatView({ threadId }: ChatViewProps) {
             <form
               ref={composerFormRef}
               onSubmit={onSend}
-              className="mx-auto w-full min-w-0 max-w-3xl"
+              className="mx-auto w-full min-w-0 max-w-5xl"
               data-chat-composer-form="true"
             >
               <div
-                className={`group rounded-[20px] border bg-card transition-colors duration-200 focus-within:border-ring/45 ${
+                className={`cenatocode-composer-shell group border-2 bg-card/80 transition-colors duration-100 focus-within:border-ring ${
                   isDragOverComposer ? "border-primary/70 bg-accent/30" : "border-border"
                 }`}
                 onDragEnter={onComposerDragEnter}
@@ -3647,14 +3654,14 @@ export default function ChatView({ threadId }: ChatViewProps) {
                 onDrop={onComposerDrop}
               >
                 {activePendingApproval ? (
-                  <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                  <div className="border-b-2 border-destructive bg-destructive/6">
                     <ComposerPendingApprovalPanel
                       approval={activePendingApproval}
                       pendingCount={pendingApprovals.length}
                     />
                   </div>
                 ) : pendingUserInputs.length > 0 ? (
-                  <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                  <div className="border-b-2 border-primary bg-primary/6">
                     <ComposerPendingUserInputPanel
                       pendingUserInputs={pendingUserInputs}
                       respondingRequestIds={respondingUserInputRequestIds}
@@ -3665,7 +3672,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                     />
                   </div>
                 ) : showPlanFollowUpPrompt && activeProposedPlan ? (
-                  <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                  <div className="border-b-2 border-warning bg-warning/6">
                     <ComposerPlanFollowUpBanner
                       key={activeProposedPlan.id}
                       planTitle={proposedPlanTitle(activeProposedPlan.planMarkdown) ?? null}
@@ -3957,7 +3964,6 @@ export default function ChatView({ threadId }: ChatViewProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="rounded-full"
                               onClick={onPreviousActivePendingUserInputQuestion}
                               disabled={activePendingIsResponding}
                             >
@@ -3967,7 +3973,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                           <Button
                             type="submit"
                             size="sm"
-                            className="rounded-full px-4"
+                            className="px-4"
                             disabled={
                               activePendingIsResponding ||
                               (activePendingProgress.isLastQuestion
@@ -3985,19 +3991,19 @@ export default function ChatView({ threadId }: ChatViewProps) {
                       ) : phase === "running" ? (
                         <button
                           type="button"
-                          className="flex size-8 items-center justify-center rounded-full bg-rose-500/90 text-white transition-all duration-150 hover:bg-rose-500 hover:scale-105 sm:h-8 sm:w-8"
+                          className="cenatocode-run-button"
+                          data-state="running"
                           onClick={() => void onInterrupt()}
                           aria-label="Stop generation"
                         >
                           <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 12 12"
-                            fill="currentColor"
-                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-0 h-full w-full"
+                            viewBox="0 0 100 40"
+                            fill="none"
                           >
-                            <rect x="2" y="2" width="8" height="8" rx="1.5" />
+                            <rect x="1" y="1" width="98" height="38" rx="1" pathLength="100" />
                           </svg>
+                          <span className="relative z-10">Stop Run</span>
                         </button>
                       ) : pendingUserInputs.length === 0 ? (
                         showPlanFollowUpPrompt ? (
@@ -4005,7 +4011,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                             <Button
                               type="submit"
                               size="sm"
-                              className="h-9 rounded-full px-4 sm:h-8"
+                              className="h-9 px-4 sm:h-8"
                               disabled={isSendBusy || isConnecting}
                             >
                               {isConnecting || isSendBusy ? "Sending..." : "Refine"}
@@ -4015,7 +4021,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                               <Button
                                 type="submit"
                                 size="sm"
-                                className="h-9 rounded-l-full rounded-r-none px-4 sm:h-8"
+                                className="h-9 rounded-r-none px-4 sm:h-8"
                                 disabled={isSendBusy || isConnecting}
                               >
                                 {isConnecting || isSendBusy ? "Sending..." : "Implement"}
@@ -4026,7 +4032,7 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                     <Button
                                       size="sm"
                                       variant="default"
-                                      className="h-9 rounded-l-none rounded-r-full border-l-white/12 px-2 sm:h-8"
+                                      className="h-9 rounded-l-none border-l-white/12 px-2 sm:h-8"
                                       aria-label="Implementation actions"
                                       disabled={isSendBusy || isConnecting}
                                     />
@@ -4048,7 +4054,8 @@ export default function ChatView({ threadId }: ChatViewProps) {
                         ) : (
                           <button
                             type="submit"
-                            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/90 text-primary-foreground transition-all duration-150 hover:bg-primary hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 sm:h-8 sm:w-8"
+                            className="cenatocode-run-button"
+                            data-state={isConnecting || isSendBusy ? "busy" : "idle"}
                             disabled={
                               isSendBusy ||
                               isConnecting ||
@@ -4064,42 +4071,9 @@ export default function ChatView({ threadId }: ChatViewProps) {
                                     : "Send message"
                             }
                           >
-                            {isConnecting || isSendBusy ? (
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 14 14"
-                                fill="none"
-                                className="animate-spin"
-                                aria-hidden="true"
-                              >
-                                <circle
-                                  cx="7"
-                                  cy="7"
-                                  r="5.5"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeDasharray="20 12"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 14 14"
-                                fill="none"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5"
-                                  stroke="currentColor"
-                                  strokeWidth="1.8"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
+                            <span className="relative z-10">
+                              {isConnecting || isSendBusy ? "Starting..." : "Run Task"}
+                            </span>
                           </button>
                         )
                       ) : null}
@@ -4261,6 +4235,7 @@ interface ChatHeaderProps {
   activeThreadId: ThreadId;
   activeThreadTitle: string;
   activeProjectName: string | undefined;
+  resolvedTheme: "light" | "dark";
   isGitRepo: boolean;
   openInCwd: string | null;
   activeProjectScripts: ProjectScript[] | undefined;
@@ -4275,12 +4250,14 @@ interface ChatHeaderProps {
   onUpdateProjectScript: (scriptId: string, input: NewProjectScriptInput) => Promise<void>;
   onDeleteProjectScript: (scriptId: string) => Promise<void>;
   onToggleDiff: () => void;
+  onToggleTheme: () => void;
 }
 
 const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   activeThreadTitle,
   activeProjectName,
+  resolvedTheme,
   isGitRepo,
   openInCwd,
   activeProjectScripts,
@@ -4295,29 +4272,45 @@ const ChatHeader = memo(function ChatHeader({
   onUpdateProjectScript,
   onDeleteProjectScript,
   onToggleDiff,
+  onToggleTheme,
 }: ChatHeaderProps) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
+    <div className="flex min-w-0 flex-1 items-center gap-3">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <SidebarTrigger className="size-7 shrink-0 md:hidden" />
-        <h2
-          className="min-w-0 shrink truncate text-sm font-medium text-foreground"
-          title={activeThreadTitle}
-        >
-          {activeThreadTitle}
-        </h2>
-        {activeProjectName && (
-          <Badge variant="outline" className="min-w-0 shrink truncate">
-            {activeProjectName}
-          </Badge>
-        )}
-        {activeProjectName && !isGitRepo && (
-          <Badge variant="outline" className="shrink-0 text-[10px] text-amber-700">
-            No Git
-          </Badge>
-        )}
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="truncate text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+            {openInCwd ?? activeProjectName ?? "Workspace"}
+          </div>
+          <div className="mt-1 flex min-w-0 items-center gap-2 overflow-hidden">
+            <h2
+              className="min-w-0 shrink truncate text-sm font-medium uppercase tracking-[0.12em] text-foreground"
+              title={activeThreadTitle}
+            >
+              {activeThreadTitle}
+            </h2>
+            {activeProjectName && (
+              <Badge variant="outline" className="min-w-0 shrink truncate">
+                Run
+              </Badge>
+            )}
+            {activeProjectName && !isGitRepo && (
+              <Badge variant="warning" className="shrink-0">
+                No Git
+              </Badge>
+            )}
+          </div>
+        </div>
       </div>
       <div className="@container/header-actions flex min-w-0 flex-1 items-center justify-end gap-2 @sm/header-actions:gap-3">
+        <Button size="xs" variant="outline" onClick={onToggleTheme} title="Toggle theme">
+          {resolvedTheme === "dark" ? (
+            <SunIcon className="size-3" />
+          ) : (
+            <MoonIcon className="size-3" />
+          )}
+          <span>{resolvedTheme === "dark" ? "Light" : "Dark"}</span>
+        </Button>
         {activeProjectScripts && (
           <ProjectScriptsControl
             scripts={activeProjectScripts}
@@ -4375,7 +4368,7 @@ const ThreadErrorBanner = memo(function ThreadErrorBanner({
 }) {
   if (!error) return null;
   return (
-    <div className="pt-3 mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl pt-3">
       <Alert variant="error">
         <CircleAlertIcon />
         <AlertDescription className="line-clamp-3" title={error}>
@@ -4413,7 +4406,7 @@ const ProviderHealthBanner = memo(function ProviderHealthBanner({
       : `${status.provider} provider has limited availability.`;
 
   return (
-    <div className="pt-3 mx-auto max-w-3xl">
+    <div className="mx-auto max-w-5xl pt-3">
       <Alert variant={status.status === "error" ? "error" : "warning"}>
         <CircleAlertIcon />
         <AlertTitle>
@@ -5346,7 +5339,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
               : `Work log (${groupedEntries.length})`;
 
           return (
-            <div className="rounded-lg border border-border/80 bg-card/45 px-3 py-2">
+            <div className="border-2 border-border bg-card/45 px-3 py-2">
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
                   {groupLabel}
@@ -5416,7 +5409,10 @@ const MessagesTimeline = memo(function MessagesTimeline({
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
           return (
             <div className="flex justify-end">
-              <div className="group relative max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
+              <div className="group relative max-w-[82%] border-2 border-primary/60 bg-primary/6 px-4 py-3">
+                <div className="mb-2 text-right text-[10px] uppercase tracking-[0.2em] text-primary">
+                  User Prompt
+                </div>
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(
@@ -5499,7 +5495,13 @@ const MessagesTimeline = memo(function MessagesTimeline({
                   <span className="h-px flex-1 bg-border" />
                 </div>
               )}
-              <div className="min-w-0 px-1 py-0.5">
+              <div className="min-w-0 border-t-2 border-border px-1 py-3">
+                <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-warning">
+                  <span>Agent Output</span>
+                  <span className="text-muted-foreground/70">
+                    {formatTimestamp(row.message.createdAt)}
+                  </span>
+                </div>
                 <ChatMarkdown
                   text={messageText}
                   cwd={markdownCwd}
@@ -5515,7 +5517,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
                   const allDirectoriesExpanded =
                     allDirectoriesExpandedByTurnId[turnSummary.turnId] ?? true;
                   return (
-                    <div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
+                    <div className="mt-2 border-2 border-border bg-card/45 p-2.5">
                       <div className="mb-1.5 flex items-center justify-between gap-2">
                         <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
                           <span>Changed files ({changedFileCountLabel})</span>
@@ -5561,7 +5563,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
                     </div>
                   );
                 })()}
-                <p className="mt-1.5 text-[10px] text-muted-foreground/30">
+                <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/40">
                   {formatMessageMeta(
                     row.message.createdAt,
                     row.message.streaming
@@ -5575,7 +5577,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
         })()}
 
       {row.kind === "proposed-plan" && (
-        <div className="min-w-0 px-1 py-0.5">
+        <div className="min-w-0 border-t-2 border-warning px-1 py-3">
           <ProposedPlanCard
             planMarkdown={row.proposedPlan.planMarkdown}
             cwd={markdownCwd}
@@ -5586,7 +5588,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
 
       {row.kind === "working" && (
         <div className="py-0.5 pl-1.5">
-          <div className="flex items-center gap-2 pt-1 text-[11px] text-muted-foreground/70">
+          <div className="flex items-center gap-2 pt-1 text-[11px] uppercase tracking-[0.18em] text-warning">
             <span className="inline-flex items-center gap-[3px]">
               <span className="h-1 w-1 rounded-full bg-muted-foreground/30 animate-pulse" />
               <span className="h-1 w-1 rounded-full bg-muted-foreground/30 animate-pulse [animation-delay:200ms]" />
@@ -5617,7 +5619,7 @@ const MessagesTimeline = memo(function MessagesTimeline({
     <div
       ref={timelineRootRef}
       data-timeline-root="true"
-      className="mx-auto w-full min-w-0 max-w-3xl overflow-x-hidden"
+      className="mx-auto w-full min-w-0 max-w-5xl overflow-x-hidden"
     >
       {virtualizedRowCount > 0 && (
         <div className="relative" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>

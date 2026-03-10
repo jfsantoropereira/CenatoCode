@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import { DiffWorkerPoolProvider } from "../components/DiffWorkerPoolProvider";
 import ThreadSidebar from "../components/Sidebar";
-import { Sidebar, SidebarProvider } from "~/components/ui/sidebar";
+import { Sidebar, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
 
 function ChatRouteLayout() {
   const navigate = useNavigate();
@@ -25,13 +25,19 @@ function ChatRouteLayout() {
   }, [navigate]);
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen style={{ "--sidebar-width": "310px" } as React.CSSProperties}>
       <Sidebar
         side="left"
         collapsible="offcanvas"
-        className="border-r border-border bg-card text-foreground"
+        className="border-r-2 border-border bg-card text-foreground"
+        resizable={{
+          minWidth: 260,
+          maxWidth: 420,
+          storageKey: "cenatocode-left-sidebar-width",
+        }}
       >
         <ThreadSidebar />
+        <SidebarRail />
       </Sidebar>
       <DiffWorkerPoolProvider>
         <Outlet />
