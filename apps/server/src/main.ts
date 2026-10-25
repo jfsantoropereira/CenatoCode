@@ -23,6 +23,7 @@ import { makeServerProviderLayer, makeServerRuntimeServicesLayer } from "./serve
 import { ProjectionSnapshotQuery } from "./orchestration/Services/ProjectionSnapshotQuery";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { Server } from "./wsServer";
+import { requiresAuthToken, resolveDefaultHost } from "./upgradeGuard";
 import { ServerLoggerLive } from "./serverLogger";
 import { AnalyticsServiceLayerLive } from "./telemetry/Layers/AnalyticsService";
 import { AnalyticsService } from "./telemetry/Services/AnalyticsService";
@@ -169,10 +170,12 @@ const ServerConfigLive = (input: CliInput) =>
       const staticDir = devUrl ? undefined : yield* cliConfig.resolveStaticDir;
       const { join } = yield* Path.Path;
       const keybindingsConfigPath = join(stateDir, "keybindings.json");
-      const host =
-        Option.getOrUndefined(input.host) ??
-        env.host ??
-        (mode === "desktop" ? "127.0.0.1" : undefined);
+      const host = resolveDefaultHost(Option.getOrUndefined(input.host) ?? env.host);
+      if (requiresAuthToken(host, authToken)) {
+        return yield* new StartupError({
+          message: `Refusing to bind non-loopback host ${host} without --auth-token (T3CODE_AUTH_TOKEN)`,
+        });
+      }
 
       const config: ServerConfigShape = {
         mode,

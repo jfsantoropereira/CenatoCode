@@ -61,6 +61,7 @@ import { Open, resolveAvailableEditors } from "./open";
 import { ServerConfig } from "./config";
 import { GitCore } from "./git/Services/GitCore.ts";
 import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
+import { isAllowedUpgradeOrigin, tokensMatch } from "./upgradeGuard";
 import {
   ATTACHMENTS_ROUTE_PREFIX,
   normalizeAttachmentRelativePath,
@@ -108,8 +109,10 @@ const isServerNotRunningError = (error: unknown): boolean => {
 };
 
 function rejectUpgrade(socket: Duplex, statusCode: number, message: string): void {
+  const statusText =
+    statusCode === 401 ? "Unauthorized" : statusCode === 403 ? "Forbidden" : "Bad Request";
   socket.end(
-    `HTTP/1.1 ${statusCode} ${statusCode === 401 ? "Unauthorized" : "Bad Request"}\r\n` +
+    `HTTP/1.1 ${statusCode} ${statusText}\r\n` +
       "Connection: close\r\n" +
       "Content-Type: text/plain\r\n" +
       `Content-Length: ${Buffer.byteLength(message)}\r\n` +
@@ -970,6 +973,20 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
   httpServer.on("upgrade", (request, socket, head) => {
     socket.on("error", () => {}); // Prevent unhandled `EPIPE`/`ECONNRESET` from crashing the process if the client disconnects mid-handshake
 
+    if (
+      !isAllowedUpgradeOrigin({
+        origin: request.headers.origin,
+        hostHeader: request.headers.host,
+        bindHost: host,
+        port,
+        devUrl,
+        authToken,
+      })
+    ) {
+      rejectUpgrade(socket, 403, "Forbidden WebSocket origin");
+      return;
+    }
+
     if (authToken) {
       let providedToken: string | null = null;
       try {
@@ -980,7 +997,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
         return;
       }
 
-      if (providedToken !== authToken) {
+      if (!tokensMatch(providedToken, authToken)) {
         rejectUpgrade(socket, 401, "Unauthorized WebSocket connection");
         return;
       }
