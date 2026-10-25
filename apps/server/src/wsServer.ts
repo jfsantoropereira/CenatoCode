@@ -429,7 +429,7 @@ export const createServer = Effect.fn(function* (): Effect.fn.Return<
     void Effect.runPromise(
       Effect.gen(function* () {
         const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-        if (tryHandleProjectFaviconRequest(url, res)) {
+        if (tryHandleProjectFaviconRequest(url, res, { authToken })) {
           return;
         }
 

@@ -176,19 +176,23 @@ function CenatoWordmark() {
   );
 }
 
+/** The WebSocket URL WsTransport connects to (may carry `?token=`). */
+function getServerWsUrl(): string {
+  const bridgeUrl = window.desktopBridge?.getWsUrl();
+  const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
+  return bridgeUrl && bridgeUrl.length > 0
+    ? bridgeUrl
+    : envUrl && envUrl.length > 0
+      ? envUrl
+      : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${window.location.port}`;
+}
+
 /**
  * Derives the server's HTTP origin (scheme + host + port) from the same
  * sources WsTransport uses, converting ws(s) to http(s).
  */
 function getServerHttpOrigin(): string {
-  const bridgeUrl = window.desktopBridge?.getWsUrl();
-  const envUrl = import.meta.env.VITE_WS_URL as string | undefined;
-  const wsUrl =
-    bridgeUrl && bridgeUrl.length > 0
-      ? bridgeUrl
-      : envUrl && envUrl.length > 0
-        ? envUrl
-        : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${window.location.port}`;
+  const wsUrl = getServerWsUrl();
   // Parse to extract just the origin, dropping path/query (e.g. ?token=…)
   const httpUrl = wsUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
   try {
@@ -198,12 +202,24 @@ function getServerHttpOrigin(): string {
   }
 }
 
+/** The auth token the WebSocket connects with (`?token=`), if any. */
+function getServerAuthToken(): string | null {
+  try {
+    return new URL(getServerWsUrl()).searchParams.get("token");
+  } catch {
+    return null;
+  }
+}
+
 const serverHttpOrigin = getServerHttpOrigin();
+const serverAuthToken = getServerAuthToken();
 
 function ProjectFavicon({ cwd }: { cwd: string }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
 
-  const src = `${serverHttpOrigin}/api/project-favicon?cwd=${encodeURIComponent(cwd)}`;
+  const src = `${serverHttpOrigin}/api/project-favicon?cwd=${encodeURIComponent(cwd)}${
+    serverAuthToken ? `&token=${encodeURIComponent(serverAuthToken)}` : ""
+  }`;
 
   if (status === "error") {
     return <FolderIcon className="size-3.5 shrink-0 text-muted-foreground/50" />;

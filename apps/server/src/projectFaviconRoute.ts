@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -70,6 +71,36 @@ function isPathWithinProject(projectCwd: string, candidatePath: string): boolean
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+// Serve only a regular, non-symlink leaf whose real path stays inside the real project root.
+function isServableProjectFile(
+  projectCwd: string,
+  candidatePath: string,
+  callback: (servable: boolean) => void,
+): void {
+  fs.lstat(candidatePath, (lstatErr, stats) => {
+    if (lstatErr || !stats.isFile()) {
+      callback(false);
+      return;
+    }
+    fs.realpath(projectCwd, (rootErr, realProjectCwd) => {
+      if (rootErr) {
+        callback(false);
+        return;
+      }
+      fs.realpath(candidatePath, (candidateErr, realCandidatePath) => {
+        callback(!candidateErr && isPathWithinProject(realProjectCwd, realCandidatePath));
+      });
+    });
+  });
+}
+
+function tokensMatch(provided: string | null, expected: string): boolean {
+  if (provided === null) return false;
+  const providedDigest = crypto.createHash("sha256").update(provided).digest();
+  const expectedDigest = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(providedDigest, expectedDigest);
+}
+
 function serveFaviconFile(filePath: string, res: http.ServerResponse): void {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = FAVICON_MIME_TYPES[ext] ?? "application/octet-stream";
@@ -95,9 +126,24 @@ function serveFallbackFavicon(res: http.ServerResponse): void {
   res.end(FALLBACK_FAVICON_SVG);
 }
 
-export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerResponse): boolean {
+export interface ProjectFaviconRouteOptions {
+  /** When set, requests must carry the same `token` query parameter the WebSocket requires. */
+  readonly authToken?: string | undefined;
+}
+
+export function tryHandleProjectFaviconRequest(
+  url: URL,
+  res: http.ServerResponse,
+  options: ProjectFaviconRouteOptions = {},
+): boolean {
   if (url.pathname !== "/api/project-favicon") {
     return false;
+  }
+
+  if (options.authToken && !tokensMatch(url.searchParams.get("token"), options.authToken)) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return true;
   }
 
   const projectCwd = url.searchParams.get("cwd");
@@ -117,8 +163,8 @@ export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerRespons
       tryResolvedPaths(paths, index + 1, onExhausted);
       return;
     }
-    fs.stat(candidate, (err, stats) => {
-      if (err || !stats?.isFile()) {
+    isServableProjectFile(projectCwd, candidate, (servable) => {
+      if (!servable) {
         tryResolvedPaths(paths, index + 1, onExhausted);
         return;
       }
@@ -157,8 +203,8 @@ export function tryHandleProjectFaviconRequest(url: URL, res: http.ServerRespons
       tryCandidates(index + 1);
       return;
     }
-    fs.stat(candidate, (err, stats) => {
-      if (err || !stats?.isFile()) {
+    isServableProjectFile(projectCwd, candidate, (servable) => {
+      if (!servable) {
         tryCandidates(index + 1);
         return;
       }

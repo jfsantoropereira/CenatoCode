@@ -4,7 +4,10 @@ import os from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { tryHandleProjectFaviconRequest } from "./projectFaviconRoute";
+import {
+  tryHandleProjectFaviconRequest,
+  type ProjectFaviconRouteOptions,
+} from "./projectFaviconRoute";
 
 interface HttpResponse {
   statusCode: number;
@@ -20,10 +23,13 @@ function makeTempDir(prefix: string): string {
   return dir;
 }
 
-async function withRouteServer(run: (baseUrl: string) => Promise<void>): Promise<void> {
+async function withRouteServer(
+  run: (baseUrl: string) => Promise<void>,
+  options?: ProjectFaviconRouteOptions,
+): Promise<void> {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    if (tryHandleProjectFaviconRequest(url, res)) {
+    if (tryHandleProjectFaviconRequest(url, res, options)) {
       return;
     }
     res.writeHead(404, { "Content-Type": "text/plain" });
@@ -167,5 +173,77 @@ describe("tryHandleProjectFaviconRequest", () => {
       expect(response.contentType).toContain("image/svg+xml");
       expect(response.body).toContain('data-fallback="project-favicon"');
     });
+  });
+
+  it("does not follow a symlinked favicon that points outside the project", async () => {
+    const outsideDir = makeTempDir("t3code-favicon-route-outside-");
+    const secretPath = path.join(outsideDir, "secret.txt");
+    fs.writeFileSync(secretPath, "OUTSIDE_SECRET", "utf8");
+    const projectDir = makeTempDir("t3code-favicon-route-symlink-leaf-");
+    fs.symlinkSync(secretPath, path.join(projectDir, "favicon.svg"));
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+      const response = await request(baseUrl, pathname);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).not.toContain("OUTSIDE_SECRET");
+      expect(response.body).toContain('data-fallback="project-favicon"');
+    });
+  });
+
+  it("does not follow an icon href through a symlinked directory outside the project", async () => {
+    const outsideDir = makeTempDir("t3code-favicon-route-outside-dir-");
+    fs.writeFileSync(path.join(outsideDir, "secret.svg"), "OUTSIDE_DIR_SECRET", "utf8");
+    const projectDir = makeTempDir("t3code-favicon-route-symlink-dir-");
+    fs.symlinkSync(outsideDir, path.join(projectDir, "linkdir"));
+    fs.writeFileSync(
+      path.join(projectDir, "index.html"),
+      '<link rel="icon" href="/linkdir/secret.svg">',
+    );
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(projectDir)}`;
+      const response = await request(baseUrl, pathname);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).not.toContain("OUTSIDE_DIR_SECRET");
+      expect(response.body).toContain('data-fallback="project-favicon"');
+    });
+  });
+
+  it("still serves a favicon when the project cwd itself is reached through a symlink", async () => {
+    const projectDir = makeTempDir("t3code-favicon-route-real-root-");
+    fs.writeFileSync(path.join(projectDir, "favicon.svg"), "<svg>via-link</svg>", "utf8");
+    const linkParent = makeTempDir("t3code-favicon-route-link-parent-");
+    const linkedCwd = path.join(linkParent, "project-link");
+    fs.symlinkSync(projectDir, linkedCwd);
+
+    await withRouteServer(async (baseUrl) => {
+      const pathname = `/api/project-favicon?cwd=${encodeURIComponent(linkedCwd)}`;
+      const response = await request(baseUrl, pathname);
+      expect(response.statusCode).toBe(200);
+      expect(response.body).toBe("<svg>via-link</svg>");
+    });
+  });
+
+  it("requires the auth token when one is configured", async () => {
+    const projectDir = makeTempDir("t3code-favicon-route-token-");
+    fs.writeFileSync(path.join(projectDir, "favicon.svg"), "<svg>token</svg>", "utf8");
+    const cwdParam = `cwd=${encodeURIComponent(projectDir)}`;
+
+    await withRouteServer(
+      async (baseUrl) => {
+        const missing = await request(baseUrl, `/api/project-favicon?${cwdParam}`);
+        expect(missing.statusCode).toBe(401);
+        expect(missing.body).not.toContain("<svg>token</svg>");
+
+        const wrong = await request(baseUrl, `/api/project-favicon?${cwdParam}&token=nope`);
+        expect(wrong.statusCode).toBe(401);
+
+        const ok = await request(baseUrl, `/api/project-favicon?${cwdParam}&token=s3cret`);
+        expect(ok.statusCode).toBe(200);
+        expect(ok.body).toBe("<svg>token</svg>");
+      },
+      { authToken: "s3cret" },
+    );
   });
 });
